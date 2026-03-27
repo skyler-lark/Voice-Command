@@ -201,6 +201,7 @@ export default function RecorderUpload() {
   const [isHoveringRecord, setIsHoveringRecord] = useState(false);
   const [liveTranscription, setLiveTranscription] = useState("");
   const [interimTranscription, setInterimTranscription] = useState("");
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -344,10 +345,10 @@ export default function RecorderUpload() {
           setAudioFile(file);
 
           // Set audio source URL for playback
+          setAudioBlob(blob);
           setTimeout(() => {
             if (audioPlaybackRef.current) {
               audioPlaybackRef.current.src = URL.createObjectURL(blob);
-              audioPlaybackRef.current.load();
             }
           }, 0);
 
@@ -530,9 +531,17 @@ export default function RecorderUpload() {
     return () => scrollContainer.removeEventListener('wheel', handleWheel);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (audioBlob && audioPlaybackRef.current?.src) {
+        URL.revokeObjectURL(audioPlaybackRef.current.src);
+      }
+    };
+  }, [audioBlob]);
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-[16px] text-white antialiased" style={customStyles.body}>
-      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90vh, 800px)", height: "90vh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
+      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
         <div className="relative h-full overflow-hidden">
           <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef}>
             <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "8vh", paddingBottom: "2vh" }}>
@@ -616,7 +625,7 @@ export default function RecorderUpload() {
 
                 {showPlayback && (
                   <div className="w-full transition-all duration-500" style={{ opacity: playbackVisible ? 1 : 0, transform: playbackVisible ? "translateY(0)" : "translateY(8px)" }}>
-                    <audio ref={audioPlaybackRef} controls className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
+                    <audio ref={audioPlaybackRef} controls crossOrigin="anonymous" className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
                   </div>
                 )}
 
