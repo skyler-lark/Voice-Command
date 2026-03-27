@@ -433,6 +433,7 @@ export default function RecorderUpload() {
 
     const stream = mediaRecorderRef.current.stream;
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContext.resume();
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;
 
@@ -540,10 +541,10 @@ export default function RecorderUpload() {
   }, [audioBlob]);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-[16px] text-white antialiased" style={customStyles.body}>
+    <div className="min-h-screen w-full flex items-center justify-center p-0 text-white antialiased" style={customStyles.body}>
       <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
         <div className="relative h-full overflow-hidden">
-          <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef}>
+          <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef} style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
             <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "8vh", paddingBottom: "2vh" }}>
               <h1 style={{ fontFamily: "Silkscreen, sans-serif" }} className="text-[44px] font-[600] text-center tracking-[0.03em] mb-[6px] leading-tight drop-shadow-lg"><span className="text-white">Voice </span><span style={{ color: "#439c84" }}>COMMAND</span></h1>
               <h2 className="text-[18px] text-[#d1d5db] text-center mb-[8px] font-[300]">Record or upload files</h2>
@@ -625,7 +626,7 @@ export default function RecorderUpload() {
 
                 {showPlayback && (
                   <div className="w-full transition-all duration-500" style={{ opacity: playbackVisible ? 1 : 0, transform: playbackVisible ? "translateY(0)" : "translateY(8px)" }}>
-                    <audio ref={audioPlaybackRef} controls crossOrigin="anonymous" className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
+                    <audio ref={audioPlaybackRef} controls playsInline className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
                   </div>
                 )}
 
