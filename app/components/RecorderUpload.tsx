@@ -13,6 +13,107 @@ const customStyles = {
   },
 };
 
+// Custom audio player component
+function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const handleEnded = () => setIsPlaying(false);
+    const handleError = () => {
+      setIsPlaying(false);
+      onError?.();
+    };
+
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("loadedmetadata", updateDuration);
+    audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("error", handleError);
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("loadedmetadata", updateDuration);
+      audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("error", handleError);
+    };
+  }, [onError]);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTime = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  return (
+    <div className="w-full flex flex-col gap-2">
+      <audio ref={audioRef} src={src} playsInline crossOrigin="anonymous" />
+      <div className="flex items-center gap-3">
+        {/* Play button */}
+        <button
+          onClick={togglePlay}
+          className="w-[40px] h-[40px] rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95"
+          style={{ backgroundColor: "#439c84" }}
+        >
+          {isPlaying ? (
+            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          )}
+        </button>
+
+        {/* Slider and time */}
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            type="range"
+            min="0"
+            max={duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="flex-1 h-1 rounded"
+            style={{
+              background: `linear-gradient(to right, #8c6bed 0%, #8c6bed ${duration ? (currentTime / duration) * 100 : 0}%, rgba(140, 107, 237, 0.2) ${duration ? (currentTime / duration) * 100 : 0}%, rgba(140, 107, 237, 0.2) 100%)`,
+            }}
+          />
+          <span className="text-[#8c6bed] text-[12px] font-mono whitespace-nowrap">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function safeFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
@@ -228,23 +329,6 @@ export default function RecorderUpload() {
       .animate-ping-custom { animation: ping-anim 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
       .animate-pulse-custom { animation: pulse-anim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       .animate-spin-custom { animation: spin-anim 1s linear infinite; }
-
-      /* Audio player styling */
-      audio::-webkit-media-controls-panel {
-        background: transparent;
-      }
-      audio::-webkit-media-controls-play-button {
-        background-color: #439c84;
-        border-radius: 50%;
-      }
-      audio::-webkit-media-controls-timeline {
-        background-color: rgba(140, 107, 237, 0.3);
-        border-radius: 4px;
-      }
-      audio::-webkit-media-controls-current-time-display,
-      audio::-webkit-media-controls-time-remaining-display {
-        color: #8c6bed;
-      }
     `;
     document.head.appendChild(styleEl);
     return () => {
@@ -639,17 +723,12 @@ export default function RecorderUpload() {
 
                 {recordings.length > 0 && recordings.map((rec, index) => (
                   <div key={rec.url} className="w-full rounded-[20px] border-2 border-[#439c84] p-[16px]" style={{ marginBottom: '6px', background: 'transparent' }}>
-                    <p className="text-[#8c6bed] text-[12px] font-mono font-medium" style={{ marginBottom: '8px' }}>Recording {index + 1}</p>
-                    <audio
+                    <p className="text-[#8c6bed] text-[12px] font-mono font-medium" style={{ marginBottom: '12px' }}>Recording {index + 1}</p>
+                    <CustomAudioPlayer
                       src={rec.url}
-                      controls
-                      playsInline
-                      onError={(e) => {
-                        const audio = e.currentTarget;
-                        setStatusText(`Playback error (Recording ${index + 1}): ${audio.error?.message || "Unknown error"} [code ${audio.error?.code}]`);
+                      onError={() => {
+                        setStatusText(`Playback error (Recording ${index + 1})`);
                       }}
-                      className="w-full"
-                      style={{ height: "48px", borderRadius: "12px" }}
                     />
                   </div>
                 ))}
