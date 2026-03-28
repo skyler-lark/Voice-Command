@@ -228,6 +228,23 @@ export default function RecorderUpload() {
       .animate-ping-custom { animation: ping-anim 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
       .animate-pulse-custom { animation: pulse-anim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       .animate-spin-custom { animation: spin-anim 1s linear infinite; }
+
+      /* Audio player styling */
+      audio::-webkit-media-controls-panel {
+        background: transparent;
+      }
+      audio::-webkit-media-controls-play-button {
+        background-color: #439c84;
+        border-radius: 50%;
+      }
+      audio::-webkit-media-controls-timeline {
+        background-color: rgba(140, 107, 237, 0.3);
+        border-radius: 4px;
+      }
+      audio::-webkit-media-controls-current-time-display,
+      audio::-webkit-media-controls-time-remaining-display {
+        color: #8c6bed;
+      }
     `;
     document.head.appendChild(styleEl);
     return () => {
