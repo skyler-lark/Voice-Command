@@ -18,6 +18,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
   const animationIdRef = useRef<number | null>(null);
+  const lastSliderUpdateRef = useRef<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -68,12 +69,16 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     const animate = () => {
       if (audio && !audio.paused) {
         const ct = audio.currentTime;
-        slider.value = ct.toString();
+        const now = performance.now();
 
-        // Update display only every 200ms to reduce re-renders
-        setCurrentTime(ct);
+        // Update slider value only every 50ms to smooth thumb movement
+        if (now - lastSliderUpdateRef.current > 50) {
+          slider.value = ct.toString();
+          setCurrentTime(ct);
+          lastSliderUpdateRef.current = now;
+        }
 
-        // Update gradient
+        // Always update gradient at 60fps for smooth progress bar
         if (duration && duration > 0) {
           const percent = (ct / duration) * 100;
           slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
