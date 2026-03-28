@@ -25,6 +25,9 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
   // Setup audio listeners
   useEffect(() => {
     const audio = audioRef.current;
@@ -36,7 +39,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
       }
     };
     const onEnded = () => setIsPlaying(false);
-    const onErr = () => { setIsPlaying(false); onError?.(); };
+    const onErr = () => { setIsPlaying(false); onErrorRef.current?.(); };
 
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("ended", onEnded);
@@ -48,7 +51,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onErr);
     };
-  }, [onError]);
+  }, [src]);
 
   // Smooth animation loop
   useEffect(() => {
