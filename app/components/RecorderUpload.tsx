@@ -16,76 +16,54 @@ const customStyles = {
 // Custom audio player component
 function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const sliderRef = useRef<HTMLInputElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const progressRef = useRef<HTMLDivElement | null>(null);
+  const thumbRef = useRef<HTMLDivElement | null>(null);
   const animationIdRef = useRef<number | null>(null);
-  const lastSliderUpdateRef = useRef<number>(0);
+  const isDraggingRef = useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  // Set initial duration when audio loads
-  const handleLoadedMetadata = () => {
-    const audio = audioRef.current;
-    const slider = sliderRef.current;
-    if (audio && slider && audio.duration && !isNaN(audio.duration)) {
-      setDuration(audio.duration);
-      slider.max = audio.duration.toString();
-    }
-  };
-
-  // Handle errors
-  const handleError = () => {
-    setIsPlaying(false);
-    onError?.();
-  };
-
-  // Setup audio listeners once
+  // Setup audio listeners
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("error", handleError);
-    audio.addEventListener("ended", () => setIsPlaying(false));
+    const onMeta = () => {
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
+    const onEnded = () => setIsPlaying(false);
+    const onErr = () => { setIsPlaying(false); onError?.(); };
 
-    // Initialize if metadata already loaded
-    if (audio.duration && !isNaN(audio.duration)) {
-      handleLoadedMetadata();
-    }
+    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onErr);
+    if (audio.duration && !isNaN(audio.duration)) onMeta();
 
     return () => {
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("error", handleError);
-      audio.removeEventListener("ended", () => setIsPlaying(false));
+      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("error", onErr);
     };
   }, [onError]);
 
-  // Separate effect for smooth playback animation
+  // Smooth animation loop
   useEffect(() => {
     const audio = audioRef.current;
-    const slider = sliderRef.current;
-    if (!audio || !slider) return;
+    if (!audio) return;
 
     const animate = () => {
-      if (audio && !audio.paused) {
+      if (audio && !audio.paused && !isDraggingRef.current) {
         const ct = audio.currentTime;
-        const now = performance.now();
-
-        // Update slider value only every 50ms to smooth thumb movement
-        if (now - lastSliderUpdateRef.current > 50) {
-          slider.value = ct.toString();
-          setCurrentTime(ct);
-          lastSliderUpdateRef.current = now;
-        }
-
-        // Always update gradient at 60fps for smooth progress bar
-        if (duration && duration > 0) {
-          const percent = (ct / duration) * 100;
-          slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
-        }
-
-        animationIdRef.current = requestAnimationFrame(animate);
+        setCurrentTime(ct);
+        const percent = duration > 0 ? (ct / duration) * 100 : 0;
+        if (progressRef.current) progressRef.current.style.width = `${percent}%`;
+        if (thumbRef.current) thumbRef.current.style.left = `${percent}%`;
       }
+      animationIdRef.current = requestAnimationFrame(animate);
     };
 
     if (isPlaying) {
@@ -93,9 +71,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     }
 
     return () => {
-      if (animationIdRef.current) {
-        cancelAnimationFrame(animationIdRef.current);
-      }
+      if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current);
     };
   }, [isPlaying, duration]);
 
@@ -110,17 +86,41 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     }
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = parseFloat(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
-      // Update slider background on seek
-      if (sliderRef.current && duration) {
-        const percent = (newTime / duration) * 100;
-        sliderRef.current.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
-      }
-    }
+  const seekTo = (clientX: number) => {
+    const track = trackRef.current;
+    const audio = audioRef.current;
+    if (!track || !audio || !duration) return;
+    const rect = track.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = percent * duration;
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+    if (progressRef.current) progressRef.current.style.width = `${percent * 100}%`;
+    if (thumbRef.current) thumbRef.current.style.left = `${percent * 100}%`;
+  };
+
+  const handleTrackClick = (e: React.MouseEvent) => {
+    seekTo(e.clientX);
+  };
+
+  const handleThumbDown = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const move = (ev: MouseEvent | TouchEvent) => {
+      const x = "touches" in ev ? ev.touches[0].clientX : ev.clientX;
+      seekTo(x);
+    };
+    const up = () => {
+      isDraggingRef.current = false;
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      window.removeEventListener("touchmove", move);
+      window.removeEventListener("touchend", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+    window.addEventListener("touchmove", move);
+    window.addEventListener("touchend", up);
   };
 
   const formatTime = (seconds: number) => {
@@ -131,36 +131,77 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
   };
 
   return (
-    <div className="w-full flex flex-col gap-2">
-      <audio ref={audioRef} src={src} playsInline crossOrigin="anonymous" />
-      <div className="flex items-center gap-3">
-        {/* Play button - just green triangle */}
-        <button onClick={togglePlay} className="flex-shrink-0 transition-all hover:scale-110 active:scale-95">
+    <div className="w-full flex flex-col" style={{ gap: "8px" }}>
+      <audio ref={audioRef} src={src} playsInline />
+      <div className="flex items-center" style={{ gap: "12px" }}>
+        {/* Play/pause button */}
+        <button
+          onClick={togglePlay}
+          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", flexShrink: 0 }}
+        >
           {isPlaying ? (
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="#439c84" />
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <rect x="5" y="3" width="4" height="18" rx="1" fill="#439c84" />
+              <rect x="15" y="3" width="4" height="18" rx="1" fill="#439c84" />
             </svg>
           ) : (
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z" fill="#439c84" />
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <polygon points="6,3 20,12 6,21" fill="#439c84" />
             </svg>
           )}
         </button>
 
-        {/* Slider and time */}
-        <div className="flex-1 flex items-center gap-2">
-          <input
-            ref={sliderRef}
-            type="range"
-            data-audio-slider="true"
-            min="0"
-            max={duration || 0}
-            onChange={handleSeek}
+        {/* Custom slider track */}
+        <div
+          ref={trackRef}
+          onClick={handleTrackClick}
+          style={{
+            flex: 1,
+            height: "4px",
+            background: "rgba(140, 107, 237, 0.2)",
+            borderRadius: "2px",
+            position: "relative",
+            cursor: "pointer",
+          }}
+        >
+          {/* Progress fill */}
+          <div
+            ref={progressRef}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: "100%",
+              width: "0%",
+              background: "#439c84",
+              borderRadius: "2px",
+              pointerEvents: "none",
+            }}
           />
-          <span className="text-[#8c6bed] text-[12px] font-mono whitespace-nowrap">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
+          {/* Thumb */}
+          <div
+            ref={thumbRef}
+            onMouseDown={handleThumbDown}
+            onTouchStart={handleThumbDown}
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "0%",
+              width: "12px",
+              height: "12px",
+              background: "#439c84",
+              borderRadius: "50%",
+              transform: "translate(-50%, -50%)",
+              cursor: "pointer",
+              boxShadow: "0 0 4px rgba(67, 156, 132, 0.5)",
+            }}
+          />
         </div>
+
+        {/* Time display */}
+        <span className="text-[12px] font-mono" style={{ color: "#8c6bed", whiteSpace: "nowrap" }}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
       </div>
     </div>
   );
@@ -381,43 +422,6 @@ export default function RecorderUpload() {
       .animate-ping-custom { animation: ping-anim 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
       .animate-pulse-custom { animation: pulse-anim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       .animate-spin-custom { animation: spin-anim 1s linear infinite; }
-
-      /* Custom range slider styling */
-      input[data-audio-slider] {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 100%;
-        height: 4px;
-        background: rgba(140, 107, 237, 0.2);
-        border-radius: 2px;
-        outline: none;
-      }
-
-      input[data-audio-slider]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 12px;
-        height: 12px;
-        background: #439c84;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 0 4px rgba(67, 156, 132, 0.5);
-      }
-
-      input[data-audio-slider]::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        background: #439c84;
-        border-radius: 50%;
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 0 4px rgba(67, 156, 132, 0.5);
-      }
-
-      input[data-audio-slider]::-moz-range-track {
-        background: transparent;
-        border: none;
-      }
     `;
     document.head.appendChild(styleEl);
     return () => {
@@ -727,8 +731,8 @@ export default function RecorderUpload() {
   }, [recordings]);
 
   return (
-    <div className="min-h-screen w-full flex items-start justify-center p-0 text-white antialiased" style={{ ...customStyles.body, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)", marginTop: "auto", marginBottom: "auto" }}>
+    <div className="w-full flex items-center justify-center p-0 text-white antialiased" style={{ ...customStyles.body, height: "100dvh", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
         <div className="relative h-full overflow-hidden">
           <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef} style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
             <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "8vh", paddingBottom: "2vh" }}>
