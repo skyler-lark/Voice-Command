@@ -735,7 +735,7 @@ export default function RecorderUpload() {
       <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
         <div className="relative h-full overflow-hidden">
           <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef} style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-            <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "8vh", paddingBottom: "2vh" }}>
+            <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "4vh", paddingBottom: "2vh" }}>
               <h1 style={{ fontFamily: "Silkscreen, sans-serif" }} className="text-[44px] font-[600] text-center tracking-[0.03em] mb-[6px] leading-tight drop-shadow-lg"><span className="text-white">Voice </span><span style={{ color: "#439c84" }}>COMMAND</span></h1>
               <h2 className="text-[18px] text-[#d1d5db] text-center mb-[8px] font-[300]">Record or upload files</h2>
               <div className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-[#0b0c0d] border border-[#439c84]">
