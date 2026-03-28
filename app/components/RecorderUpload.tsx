@@ -393,7 +393,7 @@ export default function RecorderUpload() {
   const [isHoveringRecord, setIsHoveringRecord] = useState(false);
   const [liveTranscription, setLiveTranscription] = useState("");
   const [interimTranscription, setInterimTranscription] = useState("");
-  const [recordings, setRecordings] = useState<{ blob: Blob; file: File; url: string }[]>([]);
+  const [recordings, setRecordings] = useState<{ blob: Blob; file: File; url: string; name: string }[]>([]);
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -545,7 +545,7 @@ export default function RecorderUpload() {
           const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: actualType });
           const url = URL.createObjectURL(blob);
           setAudioFile(file);
-          setRecordings((prev) => [...prev, { blob, file, url }]);
+          setRecordings((prev) => [...prev, { blob, file, url, name: `Recording ${prev.length + 1}` }]);
 
           // Stop speech recognition
           if (recognitionRef.current) {
@@ -589,8 +589,8 @@ export default function RecorderUpload() {
   };
 
   const handleDone = async () => {
-    if (isUploading || !audioFile) {
-      if (!audioFile) setStatusText("Please record audio first.");
+    if (isUploading || recordings.length === 0) {
+      if (recordings.length === 0) setStatusText("Please record audio first.");
       return;
     }
 
@@ -599,7 +599,15 @@ export default function RecorderUpload() {
     setResultText("");
 
     try {
-      const audioUrl = await uploadFile(audioFile, "audio");
+      const uploadResults: string[] = [];
+      for (const rec of recordings) {
+        const ext = rec.file.name.split(".").pop() || "webm";
+        const dateSuffix = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+        const fileName = `${safeFileName(rec.name)}-${dateSuffix}.${ext}`;
+        const namedFile = new File([rec.blob], fileName, { type: rec.file.type });
+        const url = await uploadFile(namedFile, "audio");
+        uploadResults.push(`${rec.name}: ${url}`);
+      }
       let attachmentUrl = "None";
 
       if (attachedFile) {
@@ -608,7 +616,7 @@ export default function RecorderUpload() {
       }
 
       const transcriptionText = liveTranscription.trim() || "(No transcription captured)";
-      setResultText(`Success.\n\nLive Transcription:\n${transcriptionText}\n\nAudio URL:\n${audioUrl}\n\nAttachment URL:\n${attachmentUrl}`);
+      setResultText(`Success.\n\nLive Transcription:\n${transcriptionText}\n\nAudio URLs:\n${uploadResults.join("\n")}\n\nAttachment URL:\n${attachmentUrl}`);
       setStatusText("Upload complete. Audio sent to n8n workflow.");
     } catch (error) {
       setStatusText(`Upload failed: ${(error as Error).message}`);
@@ -797,7 +805,7 @@ export default function RecorderUpload() {
                 <button onClick={() => fileInputRef.current?.click()} className="w-full rounded-[20px] border-2 border-[#439c84] bg-[#0f172a] text-[#439c84] text-[18px] font-[500] px-[16px] py-[16px] flex items-center justify-center gap-2 transition-all duration-300 hover:bg-[#439c84] hover:text-[#050607] hover:border-[#439c84] active:scale-[0.98]" style={{ marginBottom: '10px' }}>
                   {fileName}
                 </button>
-                <button onClick={handleDone} disabled={isUploading || !audioFile} className="w-full rounded-[20px] border-2 border-[#439c84] bg-[#0f172a] text-[#439c84] text-[18px] font-[500] px-[16px] py-[16px] flex items-center justify-center gap-2 transition-all duration-300 hover:bg-[#439c84] hover:text-[#050607] hover:border-[#439c84] active:scale-[0.98]" style={{ opacity: isUploading || !audioFile ? 0.5 : 1, marginBottom: '10px' }}>
+                <button onClick={handleDone} disabled={isUploading || recordings.length === 0} className="w-full rounded-[20px] border-2 border-[#439c84] bg-[#0f172a] text-[#439c84] text-[18px] font-[500] px-[16px] py-[16px] flex items-center justify-center gap-2 transition-all duration-300 hover:bg-[#439c84] hover:text-[#050607] hover:border-[#439c84] active:scale-[0.98]" style={{ opacity: isUploading || recordings.length === 0 ? 0.5 : 1, marginBottom: '10px' }}>
                   Send to workflow
                 </button>
 
@@ -816,7 +824,16 @@ export default function RecorderUpload() {
 
                 {recordings.length > 0 && recordings.map((rec, index) => (
                   <div key={rec.url} className="w-full rounded-[20px] border-2 border-[#439c84] p-[16px]" style={{ marginBottom: '6px', background: 'transparent' }}>
-                    <p className="text-[#8c6bed] text-[12px] font-mono font-medium" style={{ marginBottom: '12px' }}>Recording {index + 1}</p>
+                    <input
+                      type="text"
+                      value={rec.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setRecordings((prev) => prev.map((r, i) => i === index ? { ...r, name: newName } : r));
+                      }}
+                      className="text-[12px] font-mono font-medium"
+                      style={{ background: "none", border: "none", borderBottom: "1px solid rgba(140, 107, 237, 0.3)", color: "#8c6bed", outline: "none", width: "100%", marginBottom: "12px", paddingBottom: "4px" }}
+                    />
                     <CustomAudioPlayer
                       src={rec.url}
                       onError={() => {
