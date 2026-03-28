@@ -16,15 +16,24 @@ const customStyles = {
 // Custom audio player component
 function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sliderRef = useRef<HTMLInputElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
   useEffect(() => {
     const audio = audioRef.current;
+    const slider = sliderRef.current;
     if (!audio) return;
 
-    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateTime = () => {
+      setCurrentTime(audio.currentTime);
+      // Update slider background gradient
+      if (slider && duration) {
+        const percent = (audio.currentTime / duration) * 100;
+        slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
+      }
+    };
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => setIsPlaying(false);
     const handleError = () => {
@@ -43,7 +52,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("error", handleError);
     };
-  }, [onError]);
+  }, [onError, duration]);
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -61,6 +70,11 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     if (audioRef.current) {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
+      // Update slider background
+      if (sliderRef.current && duration) {
+        const percent = (newTime / duration) * 100;
+        sliderRef.current.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
+      }
     }
   };
 
@@ -75,18 +89,14 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     <div className="w-full flex flex-col gap-2">
       <audio ref={audioRef} src={src} playsInline crossOrigin="anonymous" />
       <div className="flex items-center gap-3">
-        {/* Play button */}
-        <button
-          onClick={togglePlay}
-          className="w-[36px] h-[36px] rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95"
-          style={{ backgroundColor: "#439c84" }}
-        >
+        {/* Play button - just green triangle */}
+        <button onClick={togglePlay} className="flex-shrink-0 transition-all hover:scale-110 active:scale-95">
           {isPlaying ? (
-            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="#439c84" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24" style={{ marginLeft: "1px" }}>
+            <svg className="w-5 h-5" fill="#439c84" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
@@ -95,6 +105,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
         {/* Slider and time */}
         <div className="flex-1 flex items-center gap-2">
           <input
+            ref={sliderRef}
             type="range"
             data-audio-slider="true"
             min="0"
