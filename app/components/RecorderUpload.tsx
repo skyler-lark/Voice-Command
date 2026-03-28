@@ -193,15 +193,13 @@ export default function RecorderUpload() {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [statusText, setStatusText] = useState("Ready.");
-  const [showPlayback, setShowPlayback] = useState(false);
-  const [playbackVisible, setPlaybackVisible] = useState(false);
   const [fileName, setFileName] = useState("Choose File...");
   const [resultText, setResultText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isHoveringRecord, setIsHoveringRecord] = useState(false);
   const [liveTranscription, setLiveTranscription] = useState("");
   const [interimTranscription, setInterimTranscription] = useState("");
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [recordings, setRecordings] = useState<{ blob: Blob; file: File; url: string }[]>([]);
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -210,7 +208,6 @@ export default function RecorderUpload() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const audioPlaybackRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -342,23 +339,15 @@ export default function RecorderUpload() {
         recorder.onstop = () => {
           const blob = new Blob(chunksRef.current, { type: "audio/webm" });
           const file = new File([blob], `recording-${Date.now()}.webm`, { type: blob.type });
+          const url = URL.createObjectURL(blob);
           setAudioFile(file);
-
-          // Set audio source URL for playback
-          setAudioBlob(blob);
-          setTimeout(() => {
-            if (audioPlaybackRef.current) {
-              audioPlaybackRef.current.src = URL.createObjectURL(blob);
-            }
-          }, 0);
+          setRecordings((prev) => [...prev, { blob, file, url }]);
 
           // Stop speech recognition
           if (recognitionRef.current) {
             recognitionRef.current.stop();
           }
 
-          setShowPlayback(true);
-          setPlaybackVisible(true);
           setStatusText("Processing complete. Ready for playback or upload.");
         };
 
@@ -372,8 +361,6 @@ export default function RecorderUpload() {
         }
 
         setIsRecording(true);
-        setShowPlayback(false);
-        setPlaybackVisible(false);
         setResultText("");
       } catch (error) {
         setStatusText(`Recording failed: ${(error as Error).message}`);
@@ -532,17 +519,16 @@ export default function RecorderUpload() {
     return () => scrollContainer.removeEventListener('wheel', handleWheel);
   }, []);
 
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      if (audioBlob && audioPlaybackRef.current?.src) {
-        URL.revokeObjectURL(audioPlaybackRef.current.src);
-      }
+      recordings.forEach((rec) => URL.revokeObjectURL(rec.url));
     };
-  }, [audioBlob]);
+  }, [recordings]);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-0 text-white antialiased" style={customStyles.body}>
-      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)" }}>
+    <div className="min-h-screen w-full flex items-start justify-center p-0 text-white antialiased" style={{ ...customStyles.body, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <main className="w-full bg-[#050607] border-2 border-[#439c84] rounded-[50px] flex flex-col relative z-10 overflow-hidden" style={{ width: "min(420px, 92vw)", maxHeight: "min(90dvh, 800px)", height: "90dvh", boxShadow: "0 14px 45px rgba(0,0,0,0.45)", marginTop: "auto", marginBottom: "auto" }}>
         <div className="relative h-full overflow-hidden">
           <div className="h-full overflow-y-scroll snap-y snap-mandatory scroll-smooth record-scroll-container" ref={scrollContainerRef} style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
             <section className="h-auto snap-start px-[24px] flex flex-col items-center justify-start gap-5" style={{ paddingTop: "8vh", paddingBottom: "2vh" }}>
@@ -608,7 +594,7 @@ export default function RecorderUpload() {
                   {fileName}
                 </button>
                 <button onClick={handleDone} disabled={isUploading || !audioFile} className="w-full rounded-[20px] border-2 border-[#439c84] bg-[#0f172a] text-[#439c84] text-[18px] font-[500] px-[16px] py-[16px] flex items-center justify-center gap-2 transition-all duration-300 hover:bg-[#439c84] hover:text-[#050607] hover:border-[#439c84] active:scale-[0.98]" style={{ opacity: isUploading || !audioFile ? 0.5 : 1, marginBottom: '10px' }}>
-                  Done
+                  Send to workflow
                 </button>
 
                 <div className="w-full pt-4" style={{ marginBottom: '10px' }}>
@@ -624,11 +610,12 @@ export default function RecorderUpload() {
                   </div>
                 )}
 
-                {showPlayback && (
-                  <div className="w-full transition-all duration-500" style={{ opacity: playbackVisible ? 1 : 0, transform: playbackVisible ? "translateY(0)" : "translateY(8px)" }}>
-                    <audio ref={audioPlaybackRef} controls playsInline className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
+                {recordings.length > 0 && recordings.map((rec, index) => (
+                  <div key={rec.url} className="w-full" style={{ marginBottom: '6px' }}>
+                    <p className="text-[#9ca3af] text-[12px] font-mono" style={{ marginBottom: '4px' }}>Recording {index + 1}</p>
+                    <audio src={rec.url} controls playsInline className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
                   </div>
-                )}
+                ))}
 
                 <div className="relative w-full group">
                   <div className="absolute -inset-0.5 rounded-[16px] blur transition duration-500" style={{ background: "linear-gradient(to right, rgba(67,156,132,0.3), rgba(140,107,237,0.3))", opacity: 0.2 }} />
