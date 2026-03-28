@@ -24,22 +24,38 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
   useEffect(() => {
     const audio = audioRef.current;
     const slider = sliderRef.current;
-    if (!audio) return;
+    if (!audio || !slider) return;
 
     const updateTime = () => {
-      setCurrentTime(audio.currentTime);
-      // Update slider background gradient
-      if (slider && duration) {
-        const percent = (audio.currentTime / duration) * 100;
+      const ct = audio.currentTime;
+      setCurrentTime(ct);
+      // Update slider directly via ref to avoid controlled input jumping
+      slider.value = ct.toString();
+
+      if (duration && duration > 0) {
+        const percent = (ct / duration) * 100;
         slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
       }
     };
-    const updateDuration = () => setDuration(audio.duration);
+
+    const updateDuration = () => {
+      const dur = audio.duration;
+      if (dur && !isNaN(dur)) {
+        setDuration(dur);
+        slider.max = dur.toString();
+      }
+    };
+
     const handleEnded = () => setIsPlaying(false);
     const handleError = () => {
       setIsPlaying(false);
       onError?.();
     };
+
+    // Check if metadata is already loaded
+    if (audio.duration && !isNaN(audio.duration)) {
+      updateDuration();
+    }
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
@@ -70,7 +86,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     if (audioRef.current) {
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
-      // Update slider background
+      // Update slider background on seek
       if (sliderRef.current && duration) {
         const percent = (newTime / duration) * 100;
         sliderRef.current.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
@@ -92,11 +108,11 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
         {/* Play button - just green triangle */}
         <button onClick={togglePlay} className="flex-shrink-0 transition-all hover:scale-110 active:scale-95">
           {isPlaying ? (
-            <svg className="w-5 h-5" fill="#439c84" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" style={{ fill: "#439c84" }}>
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5" fill="#439c84" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" style={{ fill: "#439c84" }}>
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
@@ -110,7 +126,6 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
             data-audio-slider="true"
             min="0"
             max={duration || 0}
-            value={currentTime}
             onChange={handleSeek}
           />
           <span className="text-[#8c6bed] text-[12px] font-mono whitespace-nowrap">
