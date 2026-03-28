@@ -82,10 +82,20 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
-        audioRef.current.play();
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(() => {
+          // Play failed — reload and retry once
+          audioRef.current!.load();
+          audioRef.current!.play().then(() => {
+            setIsPlaying(true);
+          }).catch(() => {
+            setIsPlaying(false);
+          });
+        });
       }
-      setIsPlaying(!isPlaying);
     }
   };
 
@@ -135,7 +145,7 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
 
   return (
     <div className="w-full flex flex-col" style={{ gap: "8px" }}>
-      <audio ref={audioRef} src={src} playsInline />
+      <audio ref={audioRef} src={src} preload="auto" playsInline />
       <div className="flex items-center" style={{ gap: "12px" }}>
         {/* Play/pause button */}
         <button
