@@ -33,21 +33,25 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onMeta = () => {
-      if (audio.duration && !isNaN(audio.duration)) {
+    const onDuration = () => {
+      if (audio.duration && isFinite(audio.duration)) {
         setDuration(audio.duration);
       }
     };
     const onEnded = () => setIsPlaying(false);
     const onErr = () => { setIsPlaying(false); onErrorRef.current?.(); };
 
-    audio.addEventListener("loadedmetadata", onMeta);
+    audio.addEventListener("loadedmetadata", onDuration);
+    audio.addEventListener("durationchange", onDuration);
+    audio.addEventListener("playing", onDuration);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onErr);
-    if (audio.duration && !isNaN(audio.duration)) onMeta();
+    if (audio.duration && isFinite(audio.duration)) onDuration();
 
     return () => {
-      audio.removeEventListener("loadedmetadata", onMeta);
+      audio.removeEventListener("loadedmetadata", onDuration);
+      audio.removeEventListener("durationchange", onDuration);
+      audio.removeEventListener("playing", onDuration);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onErr);
     };
@@ -60,9 +64,14 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
 
     const animate = () => {
       if (audio && !audio.paused && !isDraggingRef.current) {
+        // Pick up duration from audio element if state hasn't caught it yet
+        const dur = duration > 0 ? duration : (audio.duration && isFinite(audio.duration) ? audio.duration : 0);
+        if (dur > 0 && dur !== duration) {
+          setDuration(dur);
+        }
         const ct = audio.currentTime;
         setCurrentTime(ct);
-        const percent = duration > 0 ? (ct / duration) * 100 : 0;
+        const percent = dur > 0 ? (ct / dur) * 100 : 0;
         if (progressRef.current) progressRef.current.style.width = `${percent}%`;
         if (thumbRef.current) thumbRef.current.style.left = `${percent}%`;
       }
