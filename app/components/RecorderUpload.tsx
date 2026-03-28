@@ -17,58 +17,82 @@ const customStyles = {
 function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
+  const animationIdRef = useRef<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // Set initial duration when audio loads
+  const handleLoadedMetadata = () => {
+    const audio = audioRef.current;
+    const slider = sliderRef.current;
+    if (audio && slider && audio.duration && !isNaN(audio.duration)) {
+      setDuration(audio.duration);
+      slider.max = audio.duration.toString();
+    }
+  };
+
+  // Handle errors
+  const handleError = () => {
+    setIsPlaying(false);
+    onError?.();
+  };
+
+  // Setup audio listeners once
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("error", handleError);
+    audio.addEventListener("ended", () => setIsPlaying(false));
+
+    // Initialize if metadata already loaded
+    if (audio.duration && !isNaN(audio.duration)) {
+      handleLoadedMetadata();
+    }
+
+    return () => {
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("error", handleError);
+      audio.removeEventListener("ended", () => setIsPlaying(false));
+    };
+  }, [onError]);
+
+  // Separate effect for smooth playback animation
   useEffect(() => {
     const audio = audioRef.current;
     const slider = sliderRef.current;
     if (!audio || !slider) return;
 
-    const updateTime = () => {
-      const ct = audio.currentTime;
-      setCurrentTime(ct);
-      // Update slider directly via ref to avoid controlled input jumping
-      slider.value = ct.toString();
+    const animate = () => {
+      if (audio && !audio.paused) {
+        const ct = audio.currentTime;
+        slider.value = ct.toString();
 
-      if (duration && duration > 0) {
-        const percent = (ct / duration) * 100;
-        slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
+        // Update display only every 200ms to reduce re-renders
+        setCurrentTime(ct);
+
+        // Update gradient
+        if (duration && duration > 0) {
+          const percent = (ct / duration) * 100;
+          slider.style.background = `linear-gradient(to right, #439c84 0%, #439c84 ${percent}%, rgba(140, 107, 237, 0.2) ${percent}%, rgba(140, 107, 237, 0.2) 100%)`;
+        }
+
+        animationIdRef.current = requestAnimationFrame(animate);
       }
     };
 
-    const updateDuration = () => {
-      const dur = audio.duration;
-      if (dur && !isNaN(dur)) {
-        setDuration(dur);
-        slider.max = dur.toString();
-      }
-    };
-
-    const handleEnded = () => setIsPlaying(false);
-    const handleError = () => {
-      setIsPlaying(false);
-      onError?.();
-    };
-
-    // Check if metadata is already loaded
-    if (audio.duration && !isNaN(audio.duration)) {
-      updateDuration();
+    if (isPlaying) {
+      animationIdRef.current = requestAnimationFrame(animate);
     }
 
-    audio.addEventListener("timeupdate", updateTime);
-    audio.addEventListener("loadedmetadata", updateDuration);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("error", handleError);
-
     return () => {
-      audio.removeEventListener("timeupdate", updateTime);
-      audio.removeEventListener("loadedmetadata", updateDuration);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("error", handleError);
+      if (animationIdRef.current) {
+        cancelAnimationFrame(animationIdRef.current);
+      }
     };
-  }, [onError, duration]);
+  }, [isPlaying, duration]);
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -108,12 +132,12 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
         {/* Play button - just green triangle */}
         <button onClick={togglePlay} className="flex-shrink-0 transition-all hover:scale-110 active:scale-95">
           {isPlaying ? (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" style={{ fill: "#439c84" }}>
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="#439c84" />
             </svg>
           ) : (
-            <svg className="w-5 h-5" viewBox="0 0 24 24" style={{ fill: "#439c84" }}>
-              <path d="M8 5v14l11-7z" />
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" fill="#439c84" />
             </svg>
           )}
         </button>
