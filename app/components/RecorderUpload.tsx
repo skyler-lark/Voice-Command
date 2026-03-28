@@ -329,7 +329,15 @@ export default function RecorderUpload() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         chunksRef.current = [];
 
-        const recorder = new MediaRecorder(stream);
+        // Use a MIME type the browser actually supports
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "";
+        const recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
         mediaRecorderRef.current = recorder;
 
         recorder.ondataavailable = (event) => {
@@ -337,8 +345,10 @@ export default function RecorderUpload() {
         };
 
         recorder.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-          const file = new File([blob], `recording-${Date.now()}.webm`, { type: blob.type });
+          const actualType = recorder.mimeType || "audio/webm";
+          const ext = actualType.includes("mp4") ? "mp4" : actualType.includes("aac") ? "aac" : "webm";
+          const blob = new Blob(chunksRef.current, { type: actualType });
+          const file = new File([blob], `recording-${Date.now()}.${ext}`, { type: actualType });
           const url = URL.createObjectURL(blob);
           setAudioFile(file);
           setRecordings((prev) => [...prev, { blob, file, url }]);
@@ -611,9 +621,19 @@ export default function RecorderUpload() {
                 )}
 
                 {recordings.length > 0 && recordings.map((rec, index) => (
-                  <div key={rec.url} className="w-full" style={{ marginBottom: '6px' }}>
-                    <p className="text-[#9ca3af] text-[12px] font-mono" style={{ marginBottom: '4px' }}>Recording {index + 1}</p>
-                    <audio src={rec.url} controls playsInline className="w-full" style={{ height: "48px", borderRadius: "12px", background: "rgba(15, 23, 42, 0.8)", boxShadow: "inset 0 2px 10px rgba(0,0,0,0.2)", border: "1px solid rgba(67,156,132,0.3)" }} />
+                  <div key={rec.url} className="w-full rounded-[20px] border-2 border-[#439c84] p-[16px]" style={{ marginBottom: '6px', background: 'transparent' }}>
+                    <p className="text-[#8c6bed] text-[12px] font-mono font-medium" style={{ marginBottom: '8px' }}>Recording {index + 1}</p>
+                    <audio
+                      src={rec.url}
+                      controls
+                      playsInline
+                      onError={(e) => {
+                        const audio = e.currentTarget;
+                        setStatusText(`Playback error (Recording ${index + 1}): ${audio.error?.message || "Unknown error"} [code ${audio.error?.code}]`);
+                      }}
+                      className="w-full"
+                      style={{ height: "48px", borderRadius: "12px" }}
+                    />
                   </div>
                 ))}
 
