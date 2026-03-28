@@ -78,15 +78,15 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
         {/* Play button */}
         <button
           onClick={togglePlay}
-          className="w-[40px] h-[40px] rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95"
+          className="w-[36px] h-[36px] rounded-full flex items-center justify-center flex-shrink-0 transition-all hover:scale-110 active:scale-95"
           style={{ backgroundColor: "#439c84" }}
         >
           {isPlaying ? (
-            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
             </svg>
           ) : (
-            <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24" style={{ marginLeft: "1px" }}>
               <path d="M8 5v14l11-7z" />
             </svg>
           )}
@@ -96,14 +96,11 @@ function CustomAudioPlayer({ src, onError }: { src: string; onError?: () => void
         <div className="flex-1 flex items-center gap-2">
           <input
             type="range"
+            data-audio-slider="true"
             min="0"
             max={duration || 0}
             value={currentTime}
             onChange={handleSeek}
-            className="flex-1 h-1 rounded"
-            style={{
-              background: `linear-gradient(to right, #8c6bed 0%, #8c6bed ${duration ? (currentTime / duration) * 100 : 0}%, rgba(140, 107, 237, 0.2) ${duration ? (currentTime / duration) * 100 : 0}%, rgba(140, 107, 237, 0.2) 100%)`,
-            }}
           />
           <span className="text-[#8c6bed] text-[12px] font-mono whitespace-nowrap">
             {formatTime(currentTime)} / {formatTime(duration)}
@@ -329,6 +326,43 @@ export default function RecorderUpload() {
       .animate-ping-custom { animation: ping-anim 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
       .animate-pulse-custom { animation: pulse-anim 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
       .animate-spin-custom { animation: spin-anim 1s linear infinite; }
+
+      /* Custom range slider styling */
+      input[data-audio-slider] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        background: rgba(140, 107, 237, 0.2);
+        border-radius: 2px;
+        outline: none;
+      }
+
+      input[data-audio-slider]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 12px;
+        height: 12px;
+        background: #439c84;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 0 4px rgba(67, 156, 132, 0.5);
+      }
+
+      input[data-audio-slider]::-moz-range-thumb {
+        width: 12px;
+        height: 12px;
+        background: #439c84;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 0 4px rgba(67, 156, 132, 0.5);
+      }
+
+      input[data-audio-slider]::-moz-range-track {
+        background: transparent;
+        border: none;
+      }
     `;
     document.head.appendChild(styleEl);
     return () => {
