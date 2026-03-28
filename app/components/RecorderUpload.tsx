@@ -618,6 +618,8 @@ export default function RecorderUpload() {
       const transcriptionText = liveTranscription.trim() || "(No transcription captured)";
       setResultText(`Success.\n\nLive Transcription:\n${transcriptionText}\n\nAudio URLs:\n${uploadResults.join("\n")}\n\nAttachment URL:\n${attachmentUrl}`);
       setStatusText("Upload complete. Audio sent to n8n workflow.");
+      recordings.forEach((rec) => URL.revokeObjectURL(rec.url));
+      setRecordings([]);
     } catch (error) {
       setStatusText(`Upload failed: ${(error as Error).message}`);
       setResultText(`Upload failed:\n${(error as Error).message}`);
